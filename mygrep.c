@@ -21,8 +21,8 @@ int main(int argc, char ** argv) {
     char line[BUFFER_SIZE+1];
     int found = 0;
     
-    //Read wach line with fgets()
-    while ((bytes_read = read(file, line, BUFFER_SIZE)) > 0){
+    //
+    while ((bytes_read = read(file, line, sizeof(line)) > 0){
         line[bytes_read] = '\0'
       //Check for the substring using strstr()
       if (strstr(line, argv[2])){
