@@ -4,13 +4,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#define BUFSIZE 1024
+const int max_line = 1024;
 
 int main(int argc, char ** argv) {
     if (argc != 3) {
-        printf("Usage: %s <ruta_fichero> <cadena_busqueda>\n", argv[0]);
+        perror("Usage: ./mygrep <ruta_fichero> <cadena_busqueda>\n");
         return -1;
     }
+    
     
     //Open file using fopen()
     int file = open(argv[1], O_RDONLY);
@@ -19,13 +20,13 @@ int main(int argc, char ** argv) {
       return -1;
     }
     
-    char line[BUFSIZE];
-    char buffer[BUFSIZE];
+    char line[max_line];
+    char buffer[max_line];
     ssize_t bytesRead;
     int found = 0, lineIndex = 0;
     
 
-    while ((bytesRead = read(file, buffer, BUFSIZE)) > 0){
+    while ((bytesRead = read(file, buffer, max_line)) > 0){
       for (int i = 0; i<bytesRead; i++){
       
         if (buffer[i]=='\n'){
@@ -39,7 +40,7 @@ int main(int argc, char ** argv) {
           }
           lineIndex = 0; //Resert index for next time
         } 
-        else if (lineIndex < BUFSIZE -1){
+        else if (lineIndex < max_line -1){
           line[lineIndex++] = buffer[i];
           
         }
