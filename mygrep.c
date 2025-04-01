@@ -1,19 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include <unistd.h>
 #include <fcntl.h>
 
 #define BUFSIZE 1024
-
 
 int main(int argc, char ** argv) {
     if (argc != 3) {
         printf("Usage: %s <ruta_fichero> <cadena_busqueda>\n", argv[0]);
         return -1;
     }
-    
     
     //Open file using fopen()
     int file = open(argv[1], O_RDONLY);
@@ -73,4 +70,3 @@ int main(int argc, char ** argv) {
     
     return 0;
 }
-
