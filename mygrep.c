@@ -2,7 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BUFFER_SIZE 1024
+#include <unistd.h>
+#include <fcntl.h>
+
+#define BUFSIZE 1024
+
 
 int main(int argc, char ** argv) {
     if (argc != 3) {
@@ -18,25 +22,46 @@ int main(int argc, char ** argv) {
       return -1;
     }
     
-    char line[BUFFER_SIZE+1];
-    int found = 0;
+    char line[BUFSIZE];
+    char buffer[BUFSIZE];
+    ssize_t bytesRead;
+    int found = 0, lineIndex = 0;
     
-    //
-    while ((bytes_read = read(file, line, sizeof(line)) > 0){
-        line[bytes_read] = '\0'
-      //Check for the substring using strstr()
-      if (strstr(line, argv[2])){
-        printf("%s", line);  //If found, print the line, if not, print <string> not found.
-        found = 1;
+
+    while ((bytesRead = read(file, buffer, BUFSIZE)) > 0){
+      for (int i = 0; i<bytesRead; i++){
+      
+        if (buffer[i]=='\n'){
+        
+          line[lineIndex] = '\0';
+          
+          if (strstr(line, argv[2]) != NULL){
+             write(1, line, strlen(line));
+             write(1, "\n", 1);  
+             found = 1;
+          }
+          lineIndex = 0; //Resert index for next time
+        } 
+        else if (lineIndex < BUFSIZE -1){
+          line[lineIndex++] = buffer[i];
+          
+        }
       }
+
     }
 
-    if(bytes_read == -1){
+    if(bytesRead < 0){
         perror("Error reading the file");
+        if (close(file)<0){
+          perror("Error closing the file");
+          return -1;
+        }
     }
     
     if (!found){
-      printf("%s not found. \n", argv[2]);
+      write(1, "\"", 1);
+      write(1, argv[2], strlen(argv[2]));
+      write(1, "\" not found.\n", 14);
     }
 
     
@@ -48,3 +73,4 @@ int main(int argc, char ** argv) {
     
     return 0;
 }
+
