@@ -38,13 +38,15 @@ int main(int argc, char ** argv) {
              write(1, "\n", 1);  
              found = 1;
           }
-          lineIndex = 0; //Resert index for next time
+          lineIndex = 0; 
         } 
         else if (lineIndex < max_line -1){
           line[lineIndex++] = buffer[i];
           
+          
         }
       }
+
 
     }
 
