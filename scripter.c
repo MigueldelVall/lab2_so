@@ -383,11 +383,12 @@ int main(int argc, char *argv[]) {
           
         }
       }
-
-
     }
 
-    
+    if (close(file)<0){
+      perror("Error closing the file");
+      return -1;
+    }
     close(file);
     return 0;
 }
