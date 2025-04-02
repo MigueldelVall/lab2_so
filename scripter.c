@@ -179,6 +179,11 @@ int ejecutar_comando(char *command) {
             }
             close(file_err);
         }
+        
+        if(strcmp(args[0], "mygrep")==0){
+          args[0] = "./mygrep";
+        }
+        
         execvp(args[0], args);
         perror("execvp error");
         exit(-1);
