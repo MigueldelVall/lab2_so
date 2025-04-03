@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <errno.h>
 
 /* CONST VARS */
 const int max_line = 1024;
@@ -372,12 +373,14 @@ int main(int argc, char *argv[]) {
           
           if (lineNumber == 1){
             if (strncmp(line, "## Script de SSOO", 17) != 0){
+              errno = EINVAL;
               perror("Invalid script format at line 1.");
                 close(file);
                 return -1;
             }
           }else{
             if(lineIndex == 0){
+              errno = EINVAL;  // Clear any previous error to avoid misleading perror messages
               perror("Empty line encountered");
               close(file);
               return -1;
@@ -408,6 +411,7 @@ int main(int argc, char *argv[]) {
     lineNumber++;
     if (lineNumber == 1) {
       if (strncmp(line, "## Script de SSOO", 17) != 0) {
+        errno = 0;  // Clear any previous error to avoid misleading perror messages
         perror("Invalid script format at line 1.");
         close(file);
         return -1;
