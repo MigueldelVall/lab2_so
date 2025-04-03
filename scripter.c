@@ -70,51 +70,48 @@ void procesar_redirecciones(char *args[]) {
  * filev -- files for redirections. NULL value means no redirection. 
  * background -- 0 means foreground; 1 background.
  */
-int procesar_linea(char *linea, char *comandos[]) {
-    // Reinitialize background to 0
-    background = 0; 
+int procesar_linea(char *linea) {
+    // Reinicializamos las variables globales
+    background = 0;
+    for (int i = 0; i < max_args; i++) {
+        argvv[i] = NULL;
+    }
+    for (int i = 0; i < max_redirections; i++) {
+        filev[i] = NULL;
+    }
     
-    //Reinitialize the command array
-    for(int i = 0; i<max_commands; i++){
-      comandos[i] = NULL;
+    // Declaramos un arreglo local para separar la línea en comandos (por pipe)
+    char *comandos[max_commands];
+    for (int i = 0; i < max_commands; i++) {
+        comandos[i] = NULL;
     }
     
     int num_comandos = tokenizar_linea(linea, "|", comandos, max_commands);
     
-    //Check if background is indicated
-    if (strchr(comandos[num_comandos - 1], '&')) {
+    // Verificamos si el último comando tiene "&" y lo eliminamos
+    if (num_comandos > 0 && strchr(comandos[num_comandos - 1], '&') != NULL) {
         background = 1;
-        char *pos = strchr(comandos[num_comandos - 1], '&'); 
-        //remove character 
+        char *pos = strchr(comandos[num_comandos - 1], '&');
         *pos = '\0';
     }
-
-    //Finish processing
-    /*for (int i = 0; i < num_comandos; i++) {
-        int args_count = tokenizar_linea(comandos[i], " \t\n", argvv, max_args);
+    
+    // Para el caso de un único comando, llenamos la variable global argvv
+    // usando la tokenización completa de la subcadena y procesamos redirecciones.
+    if (num_comandos == 1) {
+        tokenizar_linea(comandos[0], " \t\n", argvv, max_args);
         procesar_redirecciones(argvv);
-
-        /********* This piece of code prints the command, args, redirections and background. **********/
-        /*********************** REMOVE BEFORE THE SUBMISSION *****************************************/
-        /*********************** IMPLEMENT YOUR CODE FOR PROCESSES MANAGEMENT HERE ********************/
-        /*printf("Comando = %s\n", argvv[0]);
-        for(int arg = 1; arg < max_args; arg++)
-            if(argvv[arg] != NULL)
-                printf("Args = %s\n", argvv[arg]); 
-                
-        printf("Background = %d\n", background);
-        if(filev[0] != NULL)
-            printf("Redir [IN] = %s\n", filev[0]);
-        if(filev[1] != NULL)
-            printf("Redir [OUT] = %s\n", filev[1]);
-        if(filev[2] != NULL)
-            printf("Redir [ERR] = %s\n", filev[2]);*/
-        /**********************************************************************************************/
-    //}
-
+        // Opcional: quitar comillas alrededor de argumentos
+        for (int i = 0; argvv[i] != NULL; i++) {
+            int len = strlen(argvv[i]);
+            if (len >= 2 && argvv[i][0] == '"' && argvv[i][len - 1] == '"') {
+                argvv[i][len - 1] = '\0';
+                argvv[i] = argvv[i] + 1;
+            }
+        }
+    }
+    
     return num_comandos;
 }
-
 
 /* ====================================================
    Function: ejecutar_comando
@@ -124,80 +121,62 @@ int procesar_linea(char *linea, char *comandos[]) {
    Returns the PID of the child (or -1 on error).
    ==================================================== */
 
-int ejecutar_comando(char *command) {
-    char *args[max_args];
-    char *cmdCopy = strdup(command);
-    if (!cmdCopy) {
-        perror("strdup error");
-        return -1;
-    }
-    tokenizar_linea(cmdCopy, " \t\n", args, max_args);
-    procesar_redirecciones(args);
-
-    for (int i=0; args[i] != NULL; i++){
-      int len = strlen(args[i]);
-      if(len >= 2 && args[i][0] == '"' && args[i][len -1] == '"'){
-        args[i][len -1] = '\0';
-        args[i] = args[i] +1;
-      }
-    }
-
+int ejecutar_comando(void) {
     pid_t pid = fork();
     if (pid < 0) {
         perror("fork error");
-        free(cmdCopy);
         return -1;
     }
-    if (pid == 0) { /* Child process */
-        /* Handle input redirection if specified */
+    if (pid == 0) {  /* Proceso hijo */
+        // Redirección de entrada
         if (filev[0] != NULL) {
-            int file_in = open(filev[0], O_RDONLY);
-            if (file_in < 0) {
+            int fd_in = open(filev[0], O_RDONLY);
+            if (fd_in < 0) {
                 perror("open input redirection error");
                 exit(-1);
             }
-            if (dup2(file_in, 0) < 0) {
+            if (dup2(fd_in, 0) < 0) {
                 perror("dup2 input redirection error");
                 exit(-1);
             }
-            close(file_in);
+            close(fd_in);
         }
-        /* Handle output redirection if specified */
+        // Redirección de salida
         if (filev[1] != NULL) {
-            int file_out = open(filev[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
-            if (file_out < 0) {
+            int fd_out = open(filev[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fd_out < 0) {
                 perror("open output redirection error");
                 exit(-1);
             }
-            if (dup2(file_out, 1) < 0) {
+            if (dup2(fd_out, 1) < 0) {
                 perror("dup2 output redirection error");
                 exit(-1);
             }
-            close(file_out);
+            close(fd_out);
         }
-        /* Handle error redirection if specified */
+        // Redirección de error
         if (filev[2] != NULL) {
-            int file_err = open(filev[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
-            if (file_err < 0) {
+            int fd_err = open(filev[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fd_err < 0) {
                 perror("open error redirection error");
                 exit(-1);
             }
-            if (dup2(file_err, 2) < 0) {
+            if (dup2(fd_err, 2) < 0) {
                 perror("dup2 error redirection error");
                 exit(-1);
             }
-            close(file_err);
+            close(fd_err);
         }
         
-        if(strcmp(args[0], "mygrep")==0){
-          args[0] = "./mygrep";
+        // Si se ejecuta "mygrep", ajustar el path
+        if (strcmp(argvv[0], "mygrep") == 0) {
+            argvv[0] = "./mygrep";
         }
         
-        execvp(args[0], args);
+        execvp(argvv[0], argvv);
         perror("execvp error");
         exit(-1);
     }
-    free(cmdCopy);
     return pid;
 }
 
@@ -317,34 +296,33 @@ int ejecutar_pipelines(char *comandos[], int num_cmds) {
 
 
 
-int ejecutar_linea(char *commands[], int numCmds){
-  if(numCmds == 1){
-    int pid = ejecutar_comando(commands[0]);
-              
-      if(pid < 0){
-        return -1;
-      } 
-      //si el comando no es en background, el padre espera a que el hijo finalice
-      if(!background){
-        waitpid(pid, NULL, 0);
-      }
-             
-      else{
-        printf("%d", pid);
-      }
+int ejecutar_linea(char *linea) {
+    char *commands[max_commands];
+    for (int i = 0; i < max_commands; i++) {
+        commands[i] = NULL;
     }
-    else{
-      if(ejecutar_pipelines(commands, numCmds) < 0){
-        return -1;
-      }
+    int numCmds = tokenizar_linea(linea, "|", commands, max_commands);
+    if (numCmds == 1) {
+        int pid = ejecutar_comando();
+        if (pid < 0) {
+            return -1;
+        }
+        if (!background) {
+            waitpid(pid, NULL, 0);
+        } else {
+            printf("%d", pid);
+        }
+    } else {
+        if (ejecutar_pipelines(commands, numCmds) < 0) {
+            return -1;
+        }
     }
-  return 0;
+    return 0;
 }
-
-
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
+	      errno = EINVAL;
         perror("Usage: ./scripter <script_file>\n");
         return -1;
     }
@@ -368,7 +346,7 @@ int main(int argc, char *argv[]) {
         
           line[lineIndex] = '\0';
           
-          //
+          
           lineNumber++;
           
           if (lineNumber == 1){
@@ -386,12 +364,8 @@ int main(int argc, char *argv[]) {
               return -1;
             } // final if(line_index == 0)
             
-            char *commands[max_commands];
-            int numCmds = procesar_linea(line, commands); //devuelve el numero de comandos que hay en la linea 
-            // Once you know how many commands (or segments) there are: 
-                //For a single command, fork, set up redirections if any, execute the command with execvp(), and wait if necessary
-                //For a pipeline, set up the required pipes, fork for each command, use dup2() to connect their inputs/outputs through the pioes, execute each command, and then wait for the pipeline to complete (or handle background execution appropriately).
-            if (ejecutar_linea(commands, numCmds) < 0){
+            int numCmds = procesar_linea(line); //devuelve el numero de comandos que hay en la linea 
+            if (ejecutar_linea(line) < 0){
               close(file);
               return -1;
             }
@@ -411,15 +385,14 @@ int main(int argc, char *argv[]) {
     lineNumber++;
     if (lineNumber == 1) {
       if (strncmp(line, "## Script de SSOO", 17) != 0) {
-        errno = 0;  // Clear any previous error to avoid misleading perror messages
+        errno = EINVAL;  // Clear any previous error to avoid misleading perror messages
         perror("Invalid script format at line 1.");
         close(file);
         return -1;
         }
     } else {
-        char *commands[max_commands];
-          int numCmds = procesar_linea(line, commands); 
-          if (ejecutar_linea(commands, numCmds) < 0){
+       
+          if (ejecutar_linea(line) < 0){
             close(file);
             return -1;
           }
