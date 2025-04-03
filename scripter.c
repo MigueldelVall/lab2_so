@@ -89,7 +89,7 @@ int procesar_linea(char *linea, char *comandos[]) {
     }
 
     //Finish processing
-    for (int i = 0; i < num_comandos; i++) {
+    /*for (int i = 0; i < num_comandos; i++) {
         int args_count = tokenizar_linea(comandos[i], " \t\n", argvv, max_args);
         procesar_redirecciones(argvv);
 
@@ -109,7 +109,7 @@ int procesar_linea(char *linea, char *comandos[]) {
         if(filev[2] != NULL)
             printf("Redir [ERR] = %s\n", filev[2]);*/
         /**********************************************************************************************/
-    }
+    //}
 
     return num_comandos;
 }
@@ -132,6 +132,14 @@ int ejecutar_comando(char *command) {
     }
     tokenizar_linea(cmdCopy, " \t\n", args, max_args);
     procesar_redirecciones(args);
+
+    for (int i=0; args[i] != NULL; i++){
+      int len = strlen(args[i]);
+      if(len >= 2 && args[i][0] == '"' && args[i][len -1] == '"'){
+        args[i][len -1] = '\0';
+        args[i] = args[i] +1;
+      }
+    }
 
     pid_t pid = fork();
     if (pid < 0) {
@@ -307,6 +315,33 @@ int ejecutar_pipelines(char *comandos[], int num_cmds) {
 
 
 
+
+int ejecutar_linea(char *commands[], int numCmds){
+  if(numCmds == 1){
+    int pid = ejecutar_comando(commands[0]);
+              
+      if(pid < 0){
+        return -1;
+      } 
+      //si el comando no es en background, el padre espera a que el hijo finalice
+      if(!background){
+        waitpid(pid, NULL, 0);
+      }
+             
+      else{
+        printf("%d", pid);
+      }
+    }
+    else{
+      if(ejecutar_pipelines(commands, numCmds) < 0){
+        return -1;
+      }
+    }
+  return 0;
+}
+
+
+
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         perror("Usage: ./scripter <script_file>\n");
@@ -353,30 +388,9 @@ int main(int argc, char *argv[]) {
             // Once you know how many commands (or segments) there are: 
                 //For a single command, fork, set up redirections if any, execute the command with execvp(), and wait if necessary
                 //For a pipeline, set up the required pipes, fork for each command, use dup2() to connect their inputs/outputs through the pioes, execute each command, and then wait for the pipeline to complete (or handle background execution appropriately).
-            if(numCmds == 1){
-              int pid = ejecutar_comando(commands[0]);
-              
-              if(pid < 0){
-                close(file);
-                return -1;
-              } 
-              //si el comando no es en background, el padre espera a que el hijo finalice
-              if(!background){
-                waitpid(pid, NULL, 0);
-              }
-              // si es en background, se imprime el PID del proceso.
-              else{
-                printf("%d", pid);
-                
-              }
-              
-              
-            }
-            else{
-              if(ejecutar_pipelines(commands, numCmds) < 0){
-                close(file);
-                return -1;
-              }
+            if (ejecutar_linea(commands, numCmds) < 0){
+              close(file);
+              return -1;
             }
           }
           
@@ -384,16 +398,31 @@ int main(int argc, char *argv[]) {
         } 
         else if (lineIndex < max_line -1){
           line[lineIndex++] = buffer[i];
-          
-          
+        
         }
       }
     }
-
-    if (close(file)<0){
-      perror("Error closing the file");
-      return -1;
+    
+    if (lineIndex > 0) {
+    line[lineIndex] = '\0';
+    lineNumber++;
+    if (lineNumber == 1) {
+      if (strncmp(line, "## Script de SSOO", 17) != 0) {
+        perror("Invalid script format at line 1.");
+        close(file);
+        return -1;
+        }
+    } else {
+        char *commands[max_commands];
+          int numCmds = procesar_linea(line, commands); 
+          if (ejecutar_linea(commands, numCmds) < 0){
+            close(file);
+            return -1;
+          }
     }
+}
+    
+    
     close(file);
     return 0;
 }
