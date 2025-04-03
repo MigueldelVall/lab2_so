@@ -385,7 +385,7 @@ int main(int argc, char *argv[]) {
     lineNumber++;
     if (lineNumber == 1) {
       if (strncmp(line, "## Script de SSOO", 17) != 0) {
-        errno = EINVAL;  // Clear any previous error to avoid misleading perror messages
+        errno = 0;  // Clear any previous error to avoid misleading perror messages
         perror("Invalid script format at line 1.");
         close(file);
         return -1;
